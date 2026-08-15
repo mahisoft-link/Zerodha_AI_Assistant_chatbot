@@ -1,45 +1,34 @@
 # ============================================================
 # ZERODHA AI FINANCIAL INTELLIGENCE - STREAMLIT DASHBOARD
 # ============================================================
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import yfinance as yf
-
-
 # ============================================================
 # AI - DIRECT IN-PROCESS INTEGRATION
 # ============================================================
-
 from AI.chat_chain import run_chat_chain
 from AI.health_score import portfolio_health_score
 from AI.risk_analysis import portfolio_risk_analysis
 from AI.portfolio_summary import generate_portfolio_summary
 from AI.improvement import portfolio_improvement_suggestions
-
-
 # ============================================================
 # SERVICES
 # ============================================================
-
 from services.portfolio import (
     read_portfolio,
     valid_coloumn,
     clean_data,
 )
-
 from services.market import (
     updated_current_price,
     get_stock_info,
     get_market_data,
 )
-
 from services.news import (
     get_stock_news,
 )
-
-
 # ============================================================
 # ANALYTICS
 # ============================================================
@@ -51,40 +40,28 @@ from Analytics.portfolio_analytics import (
     calculate_profit_loss_percentage,
     calculate_portfolio_summary,
 )
-
 from Analytics.sector_analysis import (
     compute_sector_breakdown,
 )
-
-
 # ============================================================
 # DATA CONVERSION HELPERS
 # ============================================================
-
 def prepare_portfolio_payload(portfolio_df):
     """Convert DataFrame into JSON-safe records for the AI chain."""
 
     if portfolio_df is None or portfolio_df.empty:
         return []
-
     safe_df = portfolio_df.copy()
     safe_df = safe_df.where(pd.notnull(safe_df), None)
-
     return safe_df.to_dict(orient="records")
-
-
 def prepare_news_payload(news_data):
     """Normalize cached news so the hybrid AI chain can use it."""
-
     normalized = {}
-
     for stock, articles in (news_data or {}).items():
         normalized[stock] = []
-
         for article in articles:
             if not isinstance(article, dict):
                 continue
-
             normalized[stock].append(
                 {
                     "title": article.get(
@@ -99,15 +76,10 @@ def prepare_news_payload(news_data):
                     "published": article.get("published", ""),
                 }
             )
-
     return normalized
-
-
-
 # ============================================================
 # NUMERIC / CHART HELPERS
 # ============================================================
-
 def to_numeric_series(series):
     """
     Convert portfolio values such as:
@@ -129,13 +101,10 @@ def to_numeric_series(series):
             }
         )
     )
-
     return pd.to_numeric(
         cleaned,
         errors="coerce",
     )
-
-
 def safe_plotly_chart(fig):
     """
     Render Plotly reliably across local and deployed Streamlit.
@@ -159,12 +128,9 @@ def safe_plotly_chart(fig):
                 "responsive": True,
             },
         )
-
-
 # ============================================================
 # HISTORICAL MARKET DATA
 # ============================================================
-
 def get_historical_data(
     symbols,
     period="1y",
@@ -172,38 +138,27 @@ def get_historical_data(
     """
     Fetch historical closing prices.
     """
-
     historical_data = []
-
     for symbol in symbols:
-
         try:
-
             yahoo_symbol = (
                 f"{symbol}.NS"
             )
-
             stock = yf.Ticker(
                 yahoo_symbol
             )
-
             history = stock.history(
                 period=period,
                 auto_adjust=False,
             )
-
             if history.empty:
-
                 continue
-
             history = (
                 history.reset_index()
             )
-
             history["Stock Symbol"] = (
                 symbol
             )
-
             history = history[
                 [
                     "Date",
@@ -211,42 +166,30 @@ def get_historical_data(
                     "Close",
                 ]
             ]
-
             history = history.dropna(
                 subset=["Close"]
             )
-
             historical_data.append(
                 history
             )
-
         except Exception as error:
-
             print(
                 "Historical data error "
                 f"for {symbol}: {error}"
             )
-
     if not historical_data:
-
         return pd.DataFrame()
-
     return pd.concat(
         historical_data,
         ignore_index=True,
     )
-
-
 # ============================================================
 # MAIN APP
 # ============================================================
-
 def main():
-
     # ========================================================
     # PAGE CONFIG
     # ========================================================
-
     st.set_page_config(
         page_title=(
             "Zerodha AI Financial Intelligence"
@@ -255,173 +198,128 @@ def main():
         layout="wide",
         initial_sidebar_state="expanded",
     )
-
     # ========================================================
     # SESSION STATE
     # ========================================================
-
     if "portfolio_data" not in st.session_state:
         st.session_state.portfolio_data = None
-
     if "news_data" not in st.session_state:
         st.session_state.news_data = {}
-
     if "file_name" not in st.session_state:
         st.session_state.file_name = None
-
     if "health_result" not in st.session_state:
         st.session_state.health_result = None
-
     if "risk_result" not in st.session_state:
         st.session_state.risk_result = None
-
     if "summary_result" not in st.session_state:
         st.session_state.summary_result = None
-
     if "improvement_result" not in st.session_state:
         st.session_state.improvement_result = None
-
     if "stock_ai_result" not in st.session_state:
         st.session_state.stock_ai_result = None
-
     if "rag_answer" not in st.session_state:
         st.session_state.rag_answer = None
-
     if "chat_answer" not in st.session_state:
         st.session_state.chat_answer = None
-
     # ========================================================
     # HEADER
     # ========================================================
-
     st.title(
         "📊 Zerodha AI Financial Intelligence"
     )
-
     st.caption(
         "Portfolio Analytics • Market Data • "
         "News • AI Insights"
     )
-
     # ========================================================
     # SIDEBAR
     # ========================================================
-
     with st.sidebar:
-
         st.header(
             "📁 Portfolio"
         )
-
         uploaded_file = st.file_uploader(
             "Upload Portfolio",
             type=["csv", "xlsx"],
         )
-
         st.divider()
-
         if (
             st.session_state
             .portfolio_data
             is not None
         ):
-
             st.success(
                 "Portfolio loaded"
             )
-
             if st.session_state.file_name:
-
                 st.caption(
                     "File: "
                     f"{st.session_state.file_name}"
                 )
-
             if st.button(
                 "🔄 Refresh Market Data",
                 width="stretch",
             ):
-
                 try:
-
                     with st.spinner(
                         "Updating market data..."
                     ):
-
                         df = (
                             st.session_state
                             .portfolio_data
                             .copy()
                         )
-
                         df = (
                             updated_current_price(
                                 df
                             )
                         )
-
                         (
                             st.session_state
                             .portfolio_data
                         ) = df
-
                     st.success(
                         "Market data updated"
                     )
-
                 except Exception as error:
-
                     st.error(
                         "Market data update "
                         f"failed: {error}"
                     )
-
     # ========================================================
     # LOAD PORTFOLIO
     # ========================================================
-
     if uploaded_file is not None:
-
         new_file = (
             st.session_state.file_name
             != uploaded_file.name
         )
-
         if new_file:
-
             try:
-
                 with st.spinner(
                     "Reading portfolio..."
                 ):
-
                     portfolio = (
                         read_portfolio(
                             uploaded_file
                         )
                     )
-
                 missing_columns = (
                     valid_coloumn(
                         portfolio
                     )
                 )
-
                 if missing_columns:
-
                     st.error(
                         "Missing required columns: "
                         + ", ".join(
                             missing_columns
                         )
                     )
-
                     st.stop()
-
                 portfolio = clean_data(
                     portfolio
                 )
-
                 with st.spinner(
                     "Fetching live market data..."
                 ):
@@ -431,18 +329,14 @@ def main():
                             portfolio
                         )
                     )
-
                 (
                     st.session_state
                     .portfolio_data
                 ) = portfolio
-
                 st.session_state.file_name = (
                     uploaded_file.name
                 )
-
                 st.session_state.news_data = {}
-
                 st.session_state.health_result = None
                 st.session_state.risk_result = None
                 st.session_state.summary_result = None
@@ -450,104 +344,74 @@ def main():
                 st.session_state.stock_ai_result = None
                 st.session_state.rag_answer = None
                 st.session_state.chat_answer = None
-
             except Exception as error:
-
                 st.error(
                     "Unable to process portfolio: "
                     f"{error}"
                 )
-
                 st.stop()
-
     # ========================================================
     # NO PORTFOLIO
     # ========================================================
-
     if (
         st.session_state
         .portfolio_data
         is None
     ):
-
         st.info(
             "👈 Upload your portfolio "
             "from the sidebar to begin."
         )
-
         st.stop()
-
     # ========================================================
     # DATA
     # ========================================================
-
     portfolio = (
         st.session_state
         .portfolio_data
     )
-
     # ========================================================
     # COMMON CALCULATIONS
     # ========================================================
-
     try:
-
         total_investment = (
             calculate_total_investment(
                 portfolio
             )
         )
-
     except Exception:
-
         total_investment = 0
-
     try:
-
         current_value = (
             calculate_current_value(
                 portfolio
             )
         )
-
     except Exception:
-
         current_value = 0
-
     try:
-
         profit_loss = (
             calculate_profit_loss(
                 portfolio
             )
         )
-
     except Exception:
-
         profit_loss = 0
-
     try:
-
         profit_loss_pct = (
             calculate_profit_loss_percentage(
                 portfolio
             )
         )
-
     except Exception:
-
         profit_loss_pct = 0
-
     # ========================================================
     # NAVIGATION
     # ========================================================
-
     st.sidebar.divider()
-
     st.sidebar.subheader(
         "🧭 Sections"
     )
-
     section = st.sidebar.radio(
         "Go to",
         [
@@ -560,52 +424,41 @@ def main():
             "💬 Ask AI",
         ],
     )
-
     # ========================================================
     # OVERVIEW
     # ========================================================
-
     if section == "📈 Overview":
 
         st.header(
             "📈 Portfolio Overview"
         )
-
         col1, col2, col3, col4 = st.columns(4)
-
         with col1:
             st.metric(
                 "💰 Total Investment",
                 f"₹ {total_investment:,.2f}",
             )
-
         with col2:
             st.metric(
                 "📊 Current Value",
                 f"₹ {current_value:,.2f}",
             )
-
         with col3:
             st.metric(
                 "💹 Profit / Loss",
                 f"₹ {profit_loss:,.2f}",
             )
-
         with col4:
             st.metric(
                 "📈 Return",
                 f"{profit_loss_pct:.2f}%",
             )
-
         st.divider()
-
         left, right = st.columns(2)
-
         with left:
             st.subheader(
                 "Investment vs Current Value"
             )
-
             chart_df = pd.DataFrame(
                 {
                     "Type": [
@@ -618,96 +471,75 @@ def main():
                     ],
                 }
             )
-
             fig = px.bar(
                 chart_df,
                 x="Type",
                 y="Value",
                 text="Value",
             )
-
             fig.update_traces(
                 texttemplate="₹%{text:,.0f}",
                 textposition="outside",
             )
-
             fig.update_layout(
                 yaxis_title="Value (₹)",
                 xaxis_title="",
                 height=380,
             )
-
             safe_plotly_chart(fig)
-
         with right:
             st.subheader(
                 "Portfolio Holdings"
             )
-
             st.dataframe(
                 portfolio,
                 use_container_width=True,
                 hide_index=True,
             )
-
-
     # ========================================================
     # ANALYTICS
     # ========================================================
-
     elif section == "📊 Analytics":
-
         st.header(
             "📊 Portfolio Analytics"
         )
-
         try:
             summary = calculate_portfolio_summary(
                 portfolio
             )
         except Exception:
             summary = {}
-
         col1, col2, col3 = st.columns(3)
-
         with col1:
             st.metric(
                 "Total Value",
                 f"₹ {summary.get('total_value', current_value):,.2f}",
             )
-
         with col2:
             st.metric(
                 "Profit / Loss",
                 f"₹ {summary.get('profit_loss', profit_loss):,.2f}",
             )
-
         with col3:
             st.metric(
                 "Risk Score",
                 f"{summary.get('risk_score', 0):.1f} / 10",
             )
-
         st.divider()
-
         # ----------------------------------------------------
         # SECTOR ALLOCATION + DAILY MOVERS
         # ----------------------------------------------------
-
         left, right = st.columns(2)
-
         with left:
             st.subheader(
                 "🥧 Sector Allocation"
             )
-
             try:
                 sector_data = compute_sector_breakdown(
                     portfolio
                 )
             except Exception:
                 sector_data = {}
-
             if sector_data:
                 sector_df = pd.DataFrame(
                     [
@@ -722,15 +554,12 @@ def main():
                         for sector, data in sector_data.items()
                     ]
                 )
-
                 sector_df["Value"] = to_numeric_series(
                     sector_df["Value"]
                 ).fillna(0)
-
                 sector_df = sector_df[
                     sector_df["Value"] > 0
                 ]
-
                 if not sector_df.empty:
                     fig = px.pie(
                         sector_df,
@@ -738,7 +567,6 @@ def main():
                         values="Value",
                         hole=0.5,
                     )
-
                     fig.update_layout(
                         height=380,
                         legend=dict(
@@ -749,7 +577,6 @@ def main():
                             x=1.02,
                         ),
                     )
-
                     safe_plotly_chart(fig)
                 else:
                     st.info(
@@ -759,12 +586,10 @@ def main():
                 st.info(
                     "Sector information unavailable."
                 )
-
         with right:
             st.subheader(
                 "📈 Daily Movers"
             )
-
             if (
                 "Stock Symbol" in portfolio.columns
                 and "Change %" in portfolio.columns
@@ -776,7 +601,6 @@ def main():
                 mover_df["Change %"] = to_numeric_series(
                     mover_df["Change %"]
                 )
-
                 mover_df = (
                     mover_df
                     .dropna(subset=["Change %"])
@@ -789,7 +613,6 @@ def main():
                         ascending=False,
                     )
                 )
-
                 if not mover_df.empty:
                     fig = px.bar(
                         mover_df,
@@ -797,18 +620,15 @@ def main():
                         y="Change %",
                         text="Change %",
                     )
-
                     fig.update_traces(
                         texttemplate="%{text:.2f}%",
                         textposition="outside",
                     )
-
                     fig.update_layout(
                         height=380,
                         xaxis_title="",
                         yaxis_title="Change %",
                     )
-
                     safe_plotly_chart(fig)
                 else:
                     st.info(
@@ -818,17 +638,13 @@ def main():
                 st.info(
                     "Daily change data unavailable."
                 )
-
         # ----------------------------------------------------
         # TOP GAINERS / LOSERS
         # ----------------------------------------------------
-
         st.divider()
-
         st.subheader(
             "🏆 Top Gainers & Losers"
         )
-
         if (
             "Stock Symbol" in portfolio.columns
             and "Change %" in portfolio.columns
@@ -836,11 +652,9 @@ def main():
             mover_data = portfolio[
                 ["Stock Symbol", "Change %"]
             ].copy()
-
             mover_data["Change %"] = to_numeric_series(
                 mover_data["Change %"]
             )
-
             mover_data = (
                 mover_data
                 .dropna(subset=["Change %"])
@@ -849,7 +663,6 @@ def main():
                     keep="first",
                 )
             )
-
             top_gainers = (
                 mover_data
                 .sort_values(
@@ -858,7 +671,6 @@ def main():
                 )
                 .head(5)
             )
-
             top_losers = (
                 mover_data
                 .sort_values(
@@ -867,14 +679,11 @@ def main():
                 )
                 .head(5)
             )
-
             gain_col, loss_col = st.columns(2)
-
             with gain_col:
                 st.markdown(
                     "### 🟢 Top Gainers"
                 )
-
                 if not top_gainers.empty:
                     fig = px.bar(
                         top_gainers,
@@ -882,29 +691,24 @@ def main():
                         y="Change %",
                         text="Change %",
                     )
-
                     fig.update_traces(
                         texttemplate="%{text:.2f}%",
                         textposition="outside",
                     )
-
                     fig.update_layout(
                         height=350,
                         xaxis_title="",
                         yaxis_title="Change %",
                     )
-
                     safe_plotly_chart(fig)
                 else:
                     st.info(
                         "No gainers available."
                     )
-
             with loss_col:
                 st.markdown(
                     "### 🔴 Top Losers"
                 )
-
                 if not top_losers.empty:
                     fig = px.bar(
                         top_losers,
