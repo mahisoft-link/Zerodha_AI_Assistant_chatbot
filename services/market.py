@@ -43,6 +43,7 @@ def get_market_data(symbols):
                 "Previous Close": previous_close,
                 "change": change,
                 "change_pct": change_pct
+                "sector": sector
             }
         except Exception as e:
             print(f"Error fetching {symbol}: {e}")
